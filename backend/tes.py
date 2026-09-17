@@ -6,7 +6,7 @@ class Array:
         self.data = [None] * self.cap
 
     def append(self, v):
-        # TODO: 
+        # TODO: test
         
         pass
 
