@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from backend.tes import Array, LinkList
+from backend.m1_pesanan import Array, LinkList
 from backend.models import Pesanan
 
 

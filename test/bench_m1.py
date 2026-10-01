@@ -9,7 +9,7 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-from backend.tes import muat_pesanan_csv, Array, LinkList
+from backend.m1_pesanan import muat_pesanan_csv, Array, LinkList
 from backend.models import Pesanan
 
 
