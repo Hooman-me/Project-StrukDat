@@ -1,8 +1,4 @@
 # backend/m2_antrean.py
-"""
-Milestone 2 (M2): Antrean & Tumpukan (Queue & Stack untuk Undo)
-Placeholder implementasi untuk Milestone berikutnya.
-"""
 
 class Queue:
     def __init__(self, cap=8):
