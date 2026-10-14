@@ -360,7 +360,7 @@ class AppUI:
         self.root.update_idletasks()
 
         # Baca data CSV
-        data_pesanan, ms_baca = ukur(baca_csv, CSV_PATH)
+        data_pesanan, ms_baca = ukur(muat_pesanan_csv, CSV_PATH)
         self.raw_data = data_pesanan
 
         # Muat ke Array & LinkList
