@@ -1,4 +1,4 @@
-# backend/bench_m1.py
+# test/bench_m1.py
 
 import time
 import os

@@ -1,14 +1,14 @@
 # backend/models.py
 
 class Pesanan:
-
+#inisiasi pesanan, masukin data, buang strip
     def __init__(self, oid, pelanggan, resto, menu, harga, prioritas, t_masuk_detik, t_selesai_detik, status):
         self.oid = str(oid).strip()
         self.pelanggan = str(pelanggan).strip()
         self.resto = str(resto).strip()
         self.menu = str(menu).strip()
         
-        # Penanganan tipe numerik aman
+        #pengaman kalo ada yang eror, kalo ga eror ubah teks jadi angka,dll
         try:
             self.harga = int(harga)
         except (ValueError, TypeError):
