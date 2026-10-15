@@ -111,12 +111,18 @@ Milestone 2 menangani dua kebutuhan operasional utama di kasir dan dapur:
    Sistem membandingkan dua pendekatan antrean berprinsip FIFO untuk melayani pesanan yang siap diantar:
    - Antrean Naif: Setiap operasi pengambilan pesanan (dequeue) mengambil elemen terdepan pada indeks 0 dan menggeser puluhan ribu sisa elemen satu petak ke kiri. Hal ini menyebabkan kompleksitas O(n) per layanan dan membebani sistem saat antrean panjang.
    - Antrean Melingkar (Circular Queue): Menggunakan sepasang penunjuk (front dan rear) dan pencacah jumlah elemen (count). Operasi dequeue cukup memajukan penunjuk front dengan aritmatika modulo `(front + 1) % kapasitas` tanpa memindahkan satu pun elemen dalam memori, sehingga selalu beroperasi dalam waktu O(1).
+   - Keputusan Desain Circular Queue:
+     1. Memakai atribut count: Membedakan kondisi penuh (count == cap) dan kosong (count == 0) secara tegas tanpa perlu mengorbankan 1 slot kosong larik.
+     2. Antrean tumbuh saat penuh: Saat count mencapai kapasitas (count == cap), kapasitas larik otomatis digandakan 2x lipat (_grow) dan elemen ditata ulang dari indeks 0, sehingga antrean bersifat dinamis tanpa risiko overflow (misal bertumbuh dinamis hingga kapasitas 32.768 pada pemuatan data riil).
 
 3. Mekanisme Pembatalan (Undo dan Redo)  
-   Setiap aksi yang mengubah status antrean dicatat ke dalam tumpukan undo lengkap dengan informasi pembalikannya:
-   - Kebalikan aksi penambahan pesanan (enqueue) adalah mengeluarkan kembali pesanan dari belakang antrean.
-   - Kebalikan aksi peliputan pesanan (dequeue) adalah mengembalikan seluruh daftar pesanan yang baru keluar ke posisi paling depan antrean.
-   - Setiap kali aksi baru dilakukan oleh pengguna, tumpukan redo dikosongkan secara otomatis untuk mencegah inkonsistensi riwayat data akibat percabangan aksi.
+   Setiap aksi yang mengubah status antrean dicatat ke dalam tumpukan undo terpisah per jenis antrean:
+   - ENQUEUE: Pembatalan mengeluarkan kembali pesanan dari belakang kedua antrean.
+   - DEQUEUE_NAIF: Pembatalan mengembalikan pesanan ke DEPAN antrean naif saja.
+   - DEQUEUE_CIRCULAR: Pembatalan mengembalikan pesanan ke DEPAN antrean circular saja (mencegah duplikasi data pada antrean naif).
+   - Efisiensi Pengembalian (kembalikan_ke_depan): Pada antrean naif, seluruh elemen lama digeser sekali jalan ke kanan sejauh k posisi (bukan sekali per elemen). Pada antrean circular, hanya penunjuk front yang dimundurkan modulo tanpa pergeseran elemen memori.
+   - Riwayat & Statistik: Tersedia method `history()` yang konsisten dengan urutan `undo_last()`, serta method `stats()` yang merangkum panjang antrean, kapasitas, total geseran, dan kedalaman tumpukan dalam bentuk list of tuple (karena dictionary dilarang).
+   - Validasi Mesin Kasir: Memvalidasi dan melempar ValueError pada kasus pembagian nol, operand kurang, kurung tak berpasangan, dua angka berurutan, operator di ujung ekspresi, maupun karakter asing.
 
 ---
 

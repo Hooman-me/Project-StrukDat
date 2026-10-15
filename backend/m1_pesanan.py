@@ -201,8 +201,34 @@ class LinkList:
             curr = curr.next
             
 
-def muat_pesanan_csv(filepath, limit=None):
+def baca_csv(filepath, limit=None):
+    """Membaca CSV menjadi list Python biasa berisi Pesanan (dipakai M2/M3 dan skrip bench)."""
     daftar = []
+    with open(filepath, mode="r", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        next(reader, None)  # lewati baris header
+
+        count = 0
+        for row in reader:
+            p = Pesanan(
+                            oid=row[0],
+                            pelanggan=row[1],
+                            resto=row[2],
+                            menu=row[3],
+                            harga=row[4],
+                            prioritas=row[5],
+                            t_masuk_detik=row[6],
+                            t_selesai_detik=row[7],
+                            status=row[8]
+                        )
+            daftar.append(p)
+
+            count += 1
+            if limit is not None and count >= limit:
+                break
+    return daftar
+
+def muat_pesanan_csv(filepath, limit=None):
     arr = Array(initial_capacity=8)
     ll = LinkList()
 
@@ -228,14 +254,14 @@ def muat_pesanan_csv(filepath, limit=None):
             )
             arr.append(p)
             ll.append(p)
-            daftar.append(p)
+            
             
             count += 1
             if limit is not None and count >= limit:
                 break
 
     return (arr, ll)
-    return daftar
+    
 
 def tambah_pesanan(struktur, pesanan):
 

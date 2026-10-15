@@ -82,6 +82,86 @@ class TestM2StackQueue(unittest.TestCase):
         self.assertEqual(hasil[0], "ENQUEUE")
         self.assertEqual(len(mgr.circular), 2)
 
+    def test_undo_redo_per_antrean(self):
+        mgr = PengelolaAntrean()
+        p1 = Pesanan("O-1", "Budi", "resto-a", "burger", 20000, 3, 100, None, "ANTRE")
+        p2 = Pesanan("O-2", "Siti", "resto-b", "pizza", 45000, 1, 105, None, "ANTRE")
+        mgr.enqueue(p1)
+        mgr.enqueue(p2)
+
+        # Dequeue circular 1 kali
+        res_circ = mgr.dequeue_circular(1)
+        self.assertEqual(len(res_circ), 1)
+        self.assertEqual(len(mgr.circular), 1)
+        self.assertEqual(len(mgr.naif), 2)  # Antrean naif tidak berkurang
+
+        # Undo dequeue circular
+        hasil = mgr.undo_last()
+        self.assertEqual(hasil[0], "DEQUEUE_CIRCULAR")
+        self.assertEqual(len(mgr.circular), 2)
+        self.assertEqual(len(mgr.naif), 2)  # Naif tetap 2, tidak duplikasi
+
+        # Dequeue naif 1 kali
+        res_naif = mgr.dequeue_naif(1)
+        self.assertEqual(len(res_naif), 1)
+        self.assertEqual(len(mgr.naif), 1)
+        self.assertEqual(len(mgr.circular), 2)  # Circular tidak berkurang
+
+        # Undo dequeue naif
+        hasil = mgr.undo_last()
+        self.assertEqual(hasil[0], "DEQUEUE_NAIF")
+        self.assertEqual(len(mgr.naif), 2)
+        self.assertEqual(len(mgr.circular), 2)
+
+    def test_history_dan_stats(self):
+        mgr = PengelolaAntrean()
+        p1 = Pesanan("O-1", "Budi", "resto-a", "burger", 20000, 3, 100, None, "ANTRE")
+        mgr.enqueue(p1)
+
+        # History harus konsisten dengan aksi
+        hist = mgr.history()
+        self.assertEqual(len(hist), 1)
+        self.assertEqual(hist[0][0], "ENQUEUE")
+
+        # Stats harus list of tuple dan bukan dict
+        st = mgr.stats()
+        self.assertIsInstance(st, list)
+        self.assertNotIsInstance(st, dict)
+        stat_dict = dict(st)
+        self.assertEqual(stat_dict["panjang_naif"], 1)
+        self.assertEqual(stat_dict["panjang_circular"], 1)
+        self.assertEqual(stat_dict["undo_depth"], 1)
+        self.assertEqual(stat_dict["redo_depth"], 0)
+
+    def test_validasi_mesin_kasir(self):
+        # 1. Pembagian nol
+        with self.assertRaises(ValueError):
+            hitung(ke_postfix("10 / 0")[0])
+
+        # 2. Operator di ujung
+        with self.assertRaises(ValueError):
+            ke_postfix("+ 5 * 2")
+        with self.assertRaises(ValueError):
+            ke_postfix("5 * 2 +")
+
+        # 3. Operand kurang
+        with self.assertRaises(ValueError):
+            hitung(["5", "+"])
+
+        # 4. Kurung tak berpasangan
+        with self.assertRaises(ValueError):
+            ke_postfix("( 3 * 2")
+        with self.assertRaises(ValueError):
+            ke_postfix("3 * 2 )")
+
+        # 5. Dua angka berurutan
+        with self.assertRaises(ValueError):
+            ke_postfix("3 5 + 2")
+
+        # 6. Karakter asing
+        with self.assertRaises(ValueError):
+            ke_postfix("3 + 2 $ 5")
+
 
 if __name__ == "__main__":
     unittest.main()

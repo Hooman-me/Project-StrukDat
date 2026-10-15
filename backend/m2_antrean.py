@@ -117,6 +117,27 @@ class AntreanNaif:
         self.data[0] = x
         self.size += 1
 
+    def kembalikan_ke_depan(self, daftar):
+        """Mengembalikan daftar elemen ke depan antrean dengan menggeser elemen sekali jalan.
+        
+        Seluruh elemen yang ada digeser sekaligus sejauh len(daftar) posisi ke kanan,
+        bukan sekali per elemen.
+        """
+        k = len(daftar)
+        if k == 0:
+            return
+        while self.size + k > self.cap:
+            self._grow()
+        # Geser seluruh elemen ke kanan sejauh k posisi sekaligus
+        geseran = self.size
+        for i in range(self.size - 1, -1, -1):
+            self.data[i + k] = self.data[i]
+        for j in range(k):
+            self.data[j] = daftar[j]
+        self.size += k
+        self.geseran_terakhir = geseran
+        self.total_geseran += geseran
+
     def dequeue_belakang(self):
         """Mengeluarkan dari belakang (digunakan untuk pembatalan enqueue)."""
         if self.size == 0:
@@ -140,6 +161,13 @@ class AntreanNaif:
 
 class AntreanMelingkar:
     """Antrean versi melingkar (Circular Queue) berbasis larik berputar.
+    
+    Keputusan Desain:
+    1. Memakai atribut count: Membedakan kondisi antrean penuh (count == cap) dan
+       kosong (count == 0) secara tegas tanpa perlu mengorbankan 1 slot kosong larik.
+    2. Antrean tumbuh saat penuh: Saat count == cap, antrean melakukan penggandaan
+       kapasitas (_grow) sebesar 2x lipat dan menata ulang posisi elemen dari indeks 0,
+       sehingga antrean bersifat dinamis dan tidak terjadi overflow.
     
     Menggunakan penunjuk front dan rear dengan operasi modulo.
     Operasi dequeue hanya memajukan front tanpa menggeser elemen apa pun (O(1)).
@@ -192,6 +220,19 @@ class AntreanMelingkar:
         self.front = (self.front - 1 + self.cap) % self.cap
         self.data[self.front] = x
         self.count += 1
+
+    def kembalikan_ke_depan(self, daftar):
+        """Mengembalikan daftar elemen ke depan antrean circular (hanya memundurkan front)."""
+        k = len(daftar)
+        if k == 0:
+            return
+        while self.count + k > self.cap:
+            self._grow()
+        self.front = (self.front - k + self.cap) % self.cap
+        for i in range(k):
+            self.data[(self.front + i) % self.cap] = daftar[i]
+        self.count += k
+        self.geseran_terakhir = 0
 
     def dequeue_belakang(self):
         """Mengeluarkan dari belakang (digunakan untuk pembatalan enqueue)."""
@@ -255,7 +296,7 @@ def pisah_token(ekspresi):
             tokens.append(c)
             i += 1
         else:
-            i += 1
+            raise ValueError(f"Karakter asing atau tidak valid ditemukan: '{c}'")
     return tokens
 
 
@@ -264,7 +305,36 @@ def ke_postfix(ekspresi):
     
     Mengembalikan tuple: (list_token_postfix, string_postfix, tabel_langkah)
     """
-    tokens = pisah_token(ekspresi)
+    if isinstance(ekspresi, str):
+        tokens = pisah_token(ekspresi)
+    else:
+        tokens = ekspresi
+
+    if not tokens:
+        raise ValueError("Ekspresi aritmatika kosong.")
+
+    # Validasi operator di ujung (awal atau akhir ekspresi)
+    op_biner = ("+", "-", "*", "/")
+    if tokens[0] in op_biner:
+        raise ValueError(f"Operator tidak boleh berada di ujung awal ekspresi: '{tokens[0]}'")
+    if tokens[-1] in op_biner:
+        raise ValueError(f"Operator tidak boleh berada di ujung akhir ekspresi: '{tokens[-1]}'")
+
+    # Validasi sintaksis: dua angka berurutan, operator berurutan, posisi kurung
+    for idx in range(len(tokens) - 1):
+        curr_t = tokens[idx]
+        next_t = tokens[idx + 1]
+        if curr_t.isdigit() and next_t.isdigit():
+            raise ValueError(f"Dua angka berurutan tanpa operator: '{curr_t}' dan '{next_t}'")
+        if curr_t in op_biner and next_t in op_biner:
+            raise ValueError(f"Dua operator berurutan: '{curr_t}' dan '{next_t}'")
+        if curr_t == "(" and next_t in op_biner:
+            raise ValueError(f"Operator langsung setelah kurung buka: '({next_t}'")
+        if curr_t in op_biner and next_t == ")":
+            raise ValueError(f"Operator langsung sebelum kurung tutup: '{curr_t})'")
+        if curr_t == "(" and next_t == ")":
+            raise ValueError("Tanda kurung kosong '()'")
+
     stack = Stack()
     keluaran = []
     langkah = []
@@ -278,17 +348,29 @@ def ke_postfix(ekspresi):
             stack.push(t)
             tindakan = "push ("
         elif t == ")":
-            while not stack.is_empty() and stack.peek() != "(":
-                keluaran.append(stack.pop())
-            if not stack.is_empty() and stack.peek() == "(":
-                stack.pop() # buang tanda '('
+            found_open = False
+            while not stack.is_empty():
+                top = stack.pop()
+                if top == "(":
+                    found_open = True
+                    break
+                keluaran.append(top)
+            if not found_open:
+                raise ValueError("Kurung tak berpasangan: tanda kurung tutup ')' berlebih.")
             tindakan = "pop sampai ( , buang ("
         elif t in ("+", "-", "*", "/", "%"):
             p_curr = _presedensi(t)
+            popped_ops = []
             while not stack.is_empty() and stack.peek() != "(" and _presedensi(stack.peek()) >= p_curr:
-                keluaran.append(stack.pop())
+                op = stack.pop()
+                keluaran.append(op)
+                popped_ops.append(op)
             stack.push(t)
-            tindakan = f"push {t}"
+            if popped_ops:
+                pop_parts = [f"pop {op} (lebih kuat/sama kuat)" for op in popped_ops]
+                tindakan = f"{', '.join(pop_parts)}, push {t}"
+            else:
+                tindakan = f"push {t}"
         else:
             tindakan = f"abaikan {t}"
 
@@ -301,8 +383,9 @@ def ke_postfix(ekspresi):
     # Pop sisa operator di stack
     while not stack.is_empty():
         top = stack.pop()
-        if top != "(":
-            keluaran.append(top)
+        if top == "(":
+            raise ValueError("Kurung tak berpasangan: tanda kurung buka '(' tidak memiliki pasangan tutup.")
+        keluaran.append(top)
     
     langkah.append(("1.akhir", "-", "pop sisa stack", "kosong", " ".join(keluaran)))
     str_postfix = " ".join(keluaran)
@@ -319,6 +402,9 @@ def hitung(postfix):
     else:
         tokens = postfix
 
+    if not tokens:
+        raise ValueError("Ekspresi postfix kosong.")
+
     stack = Stack()
     langkah = []
     no = 1
@@ -331,10 +417,10 @@ def hitung(postfix):
             langkah.append((f"2.{no}", t, f"push {nilai}", stack_str, "-"))
         elif t in ("+", "-", "*", "/"):
             # Perhatikan urutan pop: b (kanan) keluar duluan, lalu a (kiri)
+            if len(stack) < 2:
+                raise ValueError(f"Operand kurang untuk operator '{t}'.")
             b = stack.pop()
             a = stack.pop()
-            if a is None or b is None:
-                continue
             
             if t == "+":
                 res = a + b
@@ -343,15 +429,25 @@ def hitung(postfix):
             elif t == "*":
                 res = a * b
             elif t == "/":
-                res = a // b if b != 0 else 0
+                if b == 0:
+                    raise ValueError("Pembagian dengan nol tidak diperbolehkan.")
+                res = a // b
             
             stack.push(res)
             stack_str = " ".join([str(x) for x in stack.to_list()])
             tindakan = f"pop {b} dan {a} -> {a}{t}{b} = {res}"
             langkah.append((f"2.{no}", t, tindakan, stack_str, str(res)))
+        else:
+            raise ValueError(f"Token postfix tidak dikenali: '{t}'")
         no += 1
 
-    total = stack.pop() if not stack.is_empty() else 0
+    if stack.is_empty():
+        raise ValueError("Ekspresi tidak menghasilkan nilai.")
+
+    total = stack.pop()
+    if not stack.is_empty():
+        raise ValueError("Operand berlebih atau operator kurang dalam ekspresi.")
+
     return (total, langkah)
 
 
@@ -370,8 +466,8 @@ class PengelolaAntrean:
 
     def muat_dari_list(self, daftar_pesanan):
         """Memasukkan pesanan berstatus ANTRE ke kedua antrean."""
-        self.naif = AntreanNaif(cap=len(daftar_pesanan) + 8)
-        self.circular = AntreanMelingkar(cap=len(daftar_pesanan) + 8)
+        self.naif = AntreanNaif(cap=8)
+        self.circular = AntreanMelingkar(cap=8)
         self.stack_undo = Stack()
         self.stack_redo = Stack()
         
@@ -397,6 +493,11 @@ class PengelolaAntrean:
             p = self.naif.dequeue()
             if p is not None:
                 hasil.append(p)
+        
+        if len(hasil) > 0:
+            self.stack_undo.push(("DEQUEUE_NAIF", hasil))
+            self.stack_redo = Stack()
+
         return hasil
 
     def dequeue_circular(self, jumlah=1):
@@ -410,7 +511,7 @@ class PengelolaAntrean:
                 hasil.append(p)
         
         if len(hasil) > 0:
-            self.stack_undo.push(("DEQUEUE", hasil))
+            self.stack_undo.push(("DEQUEUE_CIRCULAR", hasil))
             self.stack_redo = Stack()
             
         return hasil
@@ -429,14 +530,20 @@ class PengelolaAntrean:
             self.stack_redo.push(("ENQUEUE", data))
             return ("ENQUEUE", data)
             
+        elif aksi == "DEQUEUE_NAIF":
+            self.naif.kembalikan_ke_depan(data)
+            self.stack_redo.push(("DEQUEUE_NAIF", data))
+            return ("DEQUEUE_NAIF", data)
+
+        elif aksi == "DEQUEUE_CIRCULAR":
+            self.circular.kembalikan_ke_depan(data)
+            self.stack_redo.push(("DEQUEUE_CIRCULAR", data))
+            return ("DEQUEUE_CIRCULAR", data)
+
         elif aksi == "DEQUEUE":
-            # Kembalikan daftar pesanan yang baru keluar ke depan antrean circular & naif
-            # Urutan pengembalian dibalik agar urutan semula tetap terjaga
-            daftar = data
-            for i in range(len(daftar) - 1, -1, -1):
-                p = daftar[i]
-                self.circular.enqueue_depan(p)
-                self.naif.enqueue_depan(p)
+            # Kompatibilitas jika ada aksi bertipe DEQUEUE umum
+            self.circular.kembalikan_ke_depan(data)
+            self.naif.kembalikan_ke_depan(data)
             self.stack_redo.push(("DEQUEUE", data))
             return ("DEQUEUE", data)
 
@@ -455,6 +562,20 @@ class PengelolaAntrean:
             self.stack_undo.push(("ENQUEUE", data))
             return ("ENQUEUE", data)
             
+        elif aksi == "DEQUEUE_NAIF":
+            daftar = data
+            for _ in range(len(daftar)):
+                self.naif.dequeue()
+            self.stack_undo.push(("DEQUEUE_NAIF", data))
+            return ("DEQUEUE_NAIF", data)
+
+        elif aksi == "DEQUEUE_CIRCULAR":
+            daftar = data
+            for _ in range(len(daftar)):
+                self.circular.dequeue()
+            self.stack_undo.push(("DEQUEUE_CIRCULAR", data))
+            return ("DEQUEUE_CIRCULAR", data)
+
         elif aksi == "DEQUEUE":
             daftar = data
             for _ in range(len(daftar)):
@@ -464,3 +585,23 @@ class PengelolaAntrean:
             return ("DEQUEUE", data)
 
         return None
+
+    def history(self):
+        """Mengembalikan daftar riwayat aksi yang tersimpan pada tumpukan undo."""
+        return self.stack_undo.to_list()
+
+    def stats(self):
+        """Mengembalikan statistik antrean sebagai list of tuple (label, nilai).
+        
+        Catatan: Menggunakan list tuple karena struktur dict dilarang sesuai spesifikasi.
+        """
+        return [
+            ("panjang_naif", len(self.naif)),
+            ("panjang_circular", len(self.circular)),
+            ("kapasitas_naif", self.naif.cap),
+            ("kapasitas_circular", self.circular.cap),
+            ("total_geseran_naif", self.naif.total_geseran),
+            ("total_geseran_circular", self.circular.total_geseran),
+            ("undo_depth", len(self.stack_undo)),
+            ("redo_depth", len(self.stack_redo)),
+        ]

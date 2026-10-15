@@ -12,7 +12,7 @@ if parent_dir not in sys.path:
 
 from backend.models import Pesanan
 from backend.m1_pesanan import (
-    Array, LinkList, muat_pesanan_csv, tambah_pesanan, ukur
+    Array, LinkList, muat_pesanan_csv, baca_csv, tambah_pesanan, ukur
 )
 from backend.m2_antrean import (
     PengelolaAntrean, ke_postfix, hitung
@@ -360,12 +360,12 @@ class AppUI:
         self.root.update_idletasks()
 
         # Baca data CSV
-        data_pesanan, ms_baca = ukur(muat_pesanan_csv, CSV_PATH)
+        data_pesanan, ms_baca = ukur(baca_csv, CSV_PATH)
         self.raw_data = data_pesanan
 
         # Muat ke Array & LinkList
         def _muat_semua():
-            arr = Array(initial_capacity=len(data_pesanan) + 8)
+            arr = Array(initial_capacity=8)
             ll = LinkList()
             for p in data_pesanan:
                 arr.append(p)
@@ -510,8 +510,10 @@ class AppUI:
             tipe, data = hasil
             if tipe == "ENQUEUE":
                 detail = f"Pembatalan enqueue: {data.oid} dikeluarkan lagi dari belakang kedua antrean."
+            elif tipe == "DEQUEUE_NAIF":
+                detail = f"Pembatalan dequeue: {len(data)} pesanan dikembalikan ke DEPAN antrean naif."
             else:
-                detail = f"Pembatalan dequeue: {len(data)} pesanan dikembalikan ke DEPAN antrean circular dan naif."
+                detail = f"Pembatalan dequeue: {len(data)} pesanan dikembalikan ke DEPAN antrean circular."
 
             info = (
                 f"AKSI PEMBATALAN (UNDO) BERHASIL\n"
@@ -538,8 +540,10 @@ class AppUI:
             tipe, data = hasil
             if tipe == "ENQUEUE":
                 detail = f"Pengerjaan ulang enqueue: {data.oid} dimasukkan kembali ke belakang antrean."
+            elif tipe == "DEQUEUE_NAIF":
+                detail = f"Pengerjaan ulang dequeue: {len(data)} pesanan dikeluarkan lagi dari antrean naif."
             else:
-                detail = f"Pengerjaan ulang dequeue: {len(data)} pesanan dikeluarkan lagi dari antrean."
+                detail = f"Pengerjaan ulang dequeue: {len(data)} pesanan dikeluarkan lagi dari antrean circular."
 
             info = (
                 f"AKSI PENGERJAAN ULANG (REDO) BERHASIL\n"
@@ -636,6 +640,8 @@ class AppUI:
         kunci = self.var_kunci.get()
 
         sub_data = self.raw_data[:jml]
+        self.lbl_status.config(text=f"Memproses {aksi} pada {len(sub_data):,} baris, mohon tunggu...")
+        self.root.update_idletasks()
 
         if aksi == "insertion_sort":
             (terurut, cmp_cnt, mov_cnt), ms = ukur(insertion_sort, list(sub_data), kunci)
